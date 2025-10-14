@@ -23,9 +23,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
+	"time"
 
 	"github.com/kaiachain/kaia/api/debug"
 	"github.com/kaiachain/kaia/cmd/utils"
@@ -95,5 +98,185 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+}
+
+var (
+	interval = time.Minute
+)
+
+func memoryMonitor() {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		runtime.GC()
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		recs := make([]runtime.MemProfileRecord, 10)
+		got, ok := runtime.MemProfile(recs, false)
+		if !ok {
+			continue
+		}
+		r := recs[:got]
+		byFunc := aggregateMemoryByFunc(r)
+		top := sortByMemoryUsage(byFunc)
+		// top10
+		n := 10
+		if len(top) < n {
+			n = len(top)
+		}
+		report := buildHeapReport(m, top, n)
+		json, err := json.Marshal(report)
+		if err != nil {
+			continue
+		}
+		fmt.Println("[MEM]", string(json))
+	}
+}
+
+type memoryAgg struct {
+	name string
+	file string
+	line int
+	byts int64
+}
+
+func aggregateMemoryByFunc(recs []runtime.MemProfileRecord) map[string]memoryAgg {
+	byFunc := make(map[string]memoryAgg)
+
+	for _, r := range recs {
+		inuse := r.InUseBytes()
+		if inuse == 0 {
+			continue
+		}
+
+		stack := r.Stack()
+		if len(stack) == 0 {
+			key := "<unknown>::<unknown>::0"
+			agg := byFunc[key]
+			agg.name = "<unknown>"
+			agg.file = "<unknown>"
+			agg.line = 0
+			agg.byts += inuse
+			byFunc[key] = agg
+			continue
+		}
+
+		pc := stack[0]
+		if f := runtime.FuncForPC(pc); f != nil {
+			file, line := f.FileLine(pc)
+			key := fmt.Sprintf("%s::%s::%d", f.Name(), file, line)
+			agg := byFunc[key]
+			agg.name = f.Name()
+			agg.file = file
+			agg.line = line
+			agg.byts += inuse
+			byFunc[key] = agg
+		} else {
+			key := "<unknown>::<unknown>::0"
+			agg := byFunc[key]
+			agg.name = "<unknown>"
+			agg.file = "<unknown>"
+			agg.line = 0
+			agg.byts += inuse
+			byFunc[key] = agg
+		}
+	}
+
+	return byFunc
+}
+
+func sortByMemoryUsage(byFunc map[string]memoryAgg) []memoryAgg {
+	top := make([]memoryAgg, 0, len(byFunc))
+	for _, v := range byFunc {
+		top = append(top, v)
+	}
+	sort.Slice(top, func(i, j int) bool {
+		return top[i].byts > top[j].byts
+	})
+	return top
+}
+
+type memStatsInfo struct {
+	Alloc      int64  `json:"alloc_bytes"`
+	AllocHuman string `json:"alloc_human"`
+	TotalAlloc int64  `json:"total_alloc_bytes"`
+	TotalHuman string `json:"total_alloc_human"`
+	Sys        int64  `json:"sys_bytes"`
+	SysHuman   string `json:"sys_human"`
+	NumGC      uint32 `json:"num_gc"`
+}
+
+type memConsumerInfo struct {
+	Rank       int    `json:"rank"`
+	Function   string `json:"function"`
+	File       string `json:"file"`
+	Line       int    `json:"line"`
+	Bytes      int64  `json:"bytes"`
+	BytesHuman string `json:"bytes_human"`
+}
+
+type heapReport struct {
+	Timestamp   string            `json:"timestamp"`
+	MemStats    memStatsInfo      `json:"mem_stats"`
+	TopN        int               `json:"top_n"`
+	TopConsumer []memConsumerInfo `json:"top_consumers"`
+	Total       int64             `json:"total_bytes"`
+	TotalHuman  string            `json:"total_human"`
+}
+
+func buildHeapReport(m runtime.MemStats, top []memoryAgg, n int) heapReport {
+	report := heapReport{
+		Timestamp: time.Now().Format(time.RFC3339),
+		MemStats: memStatsInfo{
+			Alloc:      int64(m.Alloc),
+			AllocHuman: humanBytes(int64(m.Alloc)),
+			TotalAlloc: int64(m.TotalAlloc),
+			TotalHuman: humanBytes(int64(m.TotalAlloc)),
+			Sys:        int64(m.Sys),
+			SysHuman:   humanBytes(int64(m.Sys)),
+			NumGC:      m.NumGC,
+		},
+		TopN:        n,
+		TopConsumer: make([]memConsumerInfo, 0, n),
+	}
+
+	var total int64
+	for i := 0; i < n; i++ {
+		report.TopConsumer = append(report.TopConsumer, memConsumerInfo{
+			Rank:       i + 1,
+			Function:   top[i].name,
+			File:       top[i].file,
+			Line:       top[i].line,
+			Bytes:      top[i].byts,
+			BytesHuman: humanBytes(top[i].byts),
+		})
+		total += top[i].byts
+	}
+
+	report.Total = total
+	report.TotalHuman = humanBytes(total)
+
+	return report
+}
+
+// humanBytes formats bytes to human-readable format
+func humanBytes(b int64) string {
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+	)
+	switch {
+	case b >= GB:
+		return fmt.Sprintf("%.2fGiB", float64(b)/float64(GB))
+	case b >= MB:
+		return fmt.Sprintf("%.2fMiB", float64(b)/float64(MB))
+	case b >= KB:
+		return fmt.Sprintf("%.2fKiB", float64(b)/float64(KB))
+	default:
+		return fmt.Sprintf("%dB", b)
 	}
 }
