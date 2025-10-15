@@ -134,7 +134,7 @@ func memoryMonitor() {
 		if err != nil {
 			continue
 		}
-		fmt.Println("[MEM]", string(json))
+		logger.Info("Memory profile", "report", string(json))
 	}
 }
 
