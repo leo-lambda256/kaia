@@ -95,6 +95,8 @@ func main() {
 	// Set NodeTypeFlag to en
 	utils.NodeTypeFlag.Value = "en"
 
+	logger.Info("Starting Kaia Endpoint Node")
+
 	go memoryMonitor()
 
 	if err := app.Run(os.Args); err != nil {

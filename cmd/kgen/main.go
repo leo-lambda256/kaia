@@ -70,6 +70,8 @@ func init() {
 }
 
 func main() {
+	logger.Info("Starting Kaia Node Key Generator")
+
 	app := cli.NewApp()
 	app.Name = "kgen"
 	app.Usage = "The command line interface to generate nodekey information for Kaia"

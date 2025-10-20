@@ -89,6 +89,8 @@ func main() {
 	// Set NodeTypeFlag to spn
 	utils.NodeTypeFlag.Value = "spn"
 
+	logger.Info("Starting Kaia ServiceChain Proxy Node", "nodeType", utils.NodeTypeFlag.Value)
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

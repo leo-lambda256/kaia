@@ -92,6 +92,8 @@ func main() {
 	// Set NodeTypeFlag to cn
 	utils.NodeTypeFlag.Value = "cn"
 
+	logger.Info("Starting Kaia Consensus Node")
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

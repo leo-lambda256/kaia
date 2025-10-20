@@ -190,6 +190,8 @@ func startNode(node *Node) error {
 }
 
 func main() {
+	logger.Info("Starting Kaia Bootnode")
+
 	// TODO-Kaia: remove `help` command
 	app := utils.NewApp("", "the Kaia's bootnode command line interface")
 	app.Name = "kbn"

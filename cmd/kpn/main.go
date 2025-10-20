@@ -92,6 +92,8 @@ func main() {
 	// Set NodeTypeFlag to pn
 	utils.NodeTypeFlag.Value = "pn"
 
+	logger.Info("Starting Kaia Proxy Node", "nodeType", utils.NodeTypeFlag.Value)
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

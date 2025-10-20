@@ -90,6 +90,8 @@ func main() {
 	utils.NodeTypeFlag.Value = "cn"
 	utils.NetworkTypeFlag.Value = utils.SCNNetworkType
 
+	logger.Info("Starting Kaia ServiceChain Node")
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

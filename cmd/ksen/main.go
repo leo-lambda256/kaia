@@ -89,6 +89,8 @@ func main() {
 	// Set NodeTypeFlag to sen
 	utils.NodeTypeFlag.Value = "sen"
 
+	logger.Info("Starting Kaia ServiceChain Endpoint Node", "nodeType", utils.NodeTypeFlag.Value)
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
