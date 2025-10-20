@@ -108,6 +108,7 @@ var (
 )
 
 func memoryMonitor() {
+	logger.Info("Starting memory monitor")
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -119,6 +120,7 @@ func memoryMonitor() {
 		recs := make([]runtime.MemProfileRecord, 10)
 		got, ok := runtime.MemProfile(recs, false)
 		if !ok {
+			logger.Info("Failed to get memory profile")
 			continue
 		}
 		r := recs[:got]
