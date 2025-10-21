@@ -119,14 +119,9 @@ func memoryMonitor() {
 		runtime.GC()
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
-		recs := make([]runtime.MemProfileRecord, 10)
-		got, ok := runtime.MemProfile(recs, false)
-		if !ok {
-			logger.Info("Failed to get memory profile")
-			continue
-		}
-		r := recs[:got]
-		byFunc := aggregateMemoryByFunc(r)
+		recs := make([]runtime.MemProfileRecord, 0, 1024)
+		runtime.MemProfile(recs, false)
+		byFunc := aggregateMemoryByFunc(recs)
 		top := sortByMemoryUsage(byFunc)
 		// top10
 		n := 10
